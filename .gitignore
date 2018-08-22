@@ -1,0 +1,6 @@
+.ipynb_checkpoints/
+*.m~
+*.pyc
+*.pkl
+*.mat
+*.wav
