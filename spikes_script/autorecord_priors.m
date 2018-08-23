@@ -1,4 +1,4 @@
-function WRecDigitTESTWOMANCochleaAMS1c()
+function autorecord_priors()
 % WRecDigitTESTWOMANCochleaAMS1c Summary of this function goes here
 % For recording files in a database
 % Author S-C. Liu (2016) Modified 20.06.2018
@@ -27,18 +27,19 @@ mkdir(destDat);
 fileID = fopen([destDir 'log.txt'], 'wt');
 
 % ENEA
-train_set = readtable('../train_set.txt', 'Delimiter', ' ');
-test_set = readtable('../test_set.txt', 'Delimiter', ' ');
+train_set = readtable('../train_set.txt', 'Delimiter', ' ', 'ReadVariableNames', false);
+test_set = readtable('../test_set.txt', 'Delimiter', ' ', 'ReadVariableNames', false);
 
 u = udp('localhost',8997,'timeout',60);
 
 %for j = 1:height(train_set)
-for j =1:10   
-    trackID = train_set{j,5}{1};
-        
+ang = 0:10:180;
+trackID = train_set{1,5}{1};
+
+for j = ang        
     %Open connection to jAER:
     fopen(u);
-    a =  ['startlogging ' destDat trackID '.aedat'];
+    a =  ['startlogging ' destDat 'prior_long_hv_' num2str(j) '.aedat'];
     cmd = sprintf('%s', a);
     
     fprintf(u,cmd);
@@ -46,29 +47,18 @@ for j =1:10
     pause(0.2);
     
     % file 1
-    filename1 = train_set{j, 1}{1};
-    [ts1, sr] = readnist([baseDir filename1]);
-    mkdir([destWav remove_name(filename1)])
-    
-    % file 2
-    filename2 = train_set{j, 2}{1};
-    [ts2, sr] = readnist([baseDir filename2]);
-    mkdir([destWav remove_name(filename2)])
+    filename1 = train_set{48, 1}{1};
+    [ts1, sr] = readnist([baseDir filename1]);    
     
     %check for message to comeback, %try catch
     
     x=(ts1-min(ts1))*2/(max(ts1)-min(ts1))-1; %2 is the range from 1 to -1
-    y=(ts2-min(ts2))*2/(max(ts2)-min(ts2))-1;
-    
-    audiowrite([destWav filename1 '.wav'], x, sr)
-    audiowrite([destWav filename2 '.wav'], y, sr)
     % delays
-    [x, y, ang1, ang2] = random_delays(x, y, sr);
-    fprintf(fileID, '%s %f %f \n', trackID, ang1, ang2);
+    [x, y, ~] = delays4priors(x, sr, j);
     
     Y = [x, y];
+    Y = [Y; Y; Y; Y; Y; Y; Y; Y; Y; Y];
     Y=(Y - min(min(Y)))*2/(max(max(Y))-min(min(Y)))-1;
-    audiowrite([destWav trackID '.wav'], Y, sr)
     
     fprintf(u,'zerotimestamps');
     fprintf('%s',fscanf(u));

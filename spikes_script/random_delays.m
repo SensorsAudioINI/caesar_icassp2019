@@ -48,10 +48,10 @@ end
 
 %% output
 max_len = max([length(y11), length(y21), length(y12), length(y22)]);
-y11 = [y11, zeros(1, max_len - length(y11))];
-y12 = [y12, zeros(1, max_len - length(y12))];
-y21 = [y21, zeros(1, max_len - length(y21))];
-y22 = [y22, zeros(1, max_len - length(y22))];
+y11 = [y11; zeros(max_len - length(y11), 1)];
+y12 = [y12; zeros(max_len - length(y12), 1)];
+y21 = [y21; zeros(max_len - length(y21), 1)];
+y22 = [y22; zeros(max_len - length(y22), 1)];
 ch0 = y11 + y21;
 ch1 = y12 + y22;
 
