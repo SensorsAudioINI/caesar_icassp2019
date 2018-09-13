@@ -4,3 +4,11 @@
 *.pkl
 *.mat
 *.wav
+*.npy
+.idea
+imgs
+/pytorch/results/
+/pytorch/.cache/
+/pytorch/decoder/
+/pytorch/models/
+/pytorch/logs/
