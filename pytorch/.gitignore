@@ -1,0 +1,6 @@
+logs/
+models/
+*.pyc
+.idea/
+decoder/files
+decoder/
