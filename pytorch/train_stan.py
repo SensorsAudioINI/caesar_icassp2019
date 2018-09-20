@@ -1,9 +1,5 @@
 from __future__ import print_function
 
-import os
-os.environ['LD_LIBRARY_PATH'] = '/usr/local/cuda-8.0/include:/usr/local/cuda-8.0/lib64/:' + \
-                                os.environ['LD_LIBRARY_PATH']
-
 import matplotlib
 
 matplotlib.use('Agg')  # from https://stackoverflow.com/questions/27147300/how-to-clean-images-in-python-django
@@ -46,7 +42,7 @@ if __name__ == '__main__':
     parser.add_argument('--trainset',
                         default='train')
     parser.add_argument('--valset',
-                        default='train')
+                        default='test')
 
     parser.add_argument('--run_id', default=os.environ.get('LSB_JOBID', 'default'),
                         help='ID of the run, used in saving.  Gets job ID on Euler, otherwise is "default".')
@@ -105,8 +101,8 @@ if __name__ == '__main__':
     log_dict = collections.OrderedDict()
 
     # Prepare transforms
-    train_transforms = [tl.warp_ctc_shift(), tl.standardization(args.standardization), tl.gaussian_noise()]
-    val_transforms = [tl.warp_ctc_shift(), tl.standardization(args.standardization)]
+    train_transforms = [tl.warp_ctc_shift(), tl.gaussian_noise()]
+    val_transforms = [tl.warp_ctc_shift(), ]
     if args.concatenation == True:
         train_transforms.append(tl.concatenation())
         val_transforms.append(tl.concatenation())
@@ -142,6 +138,11 @@ if __name__ == '__main__':
                          att_size=args.att_size, att_share=args.att_share, cla_size=args.cla_size, cla_layers=args.cla_layers,
                          num_classes=args.classes,
                          tra_type=args.tra_type, rnn_mode=args.rnn_type, cla_dropout=args.cla_dropout)
+
+    if args.load is not None:
+        # Load network
+        basedir = '/Data/Dropbox/PhD/Projects/caesar_iscas2019/pytorch/models/'
+        net.load_state_dict(torch.load(basedir + args.load + '/best', map_location=lambda storage, loc: storage))
 
     if args.cuda == True:
         net = net.cuda()

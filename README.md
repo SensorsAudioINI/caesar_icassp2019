@@ -29,5 +29,7 @@ But the main idea was noise adaptation: I reconstruct the fbank as best as I can
 the recon model to be robust to that kind of noise.
 
     Experiments step 3:
-    - End-to-End with spike features
-    - Fbank reconstruction (DONE) + noise adaptation  
+    - MODE 1: Directly using separated spikes 
+    - MODE 2: using projected spk2log model
+    - MODE 3: Do noise degradation during training (same distribution)
+    - MODE 4: End-to-end reconstruction and recognition

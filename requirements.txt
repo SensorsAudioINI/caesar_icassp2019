@@ -1,0 +1,12 @@
+numpy
+matplotlib
+warpctc_pytorch
+torch
+tqdm
+scipy
+mkl_random
+seqtools
+editdistance
+tables
+sklearn
+sk-video
