@@ -105,8 +105,10 @@ if __name__ == '__main__':
     log_dict = collections.OrderedDict()
 
     # Prepare transforms
+
     train_transforms = [tl.warp_ctc_shift(), tl.gaussian_noise(sigma=3.0)]
     val_transforms = [tl.warp_ctc_shift()]
+
     if args.concatenation == True:
         train_transforms.append(tl.concatenation())
         val_transforms.append(tl.concatenation())
@@ -142,6 +144,11 @@ if __name__ == '__main__':
                          att_size=args.att_size, att_share=args.att_share, cla_size=args.cla_size, cla_layers=args.cla_layers,
                          num_classes=args.classes,
                          tra_type=args.tra_type, rnn_mode=args.rnn_type, cla_dropout=args.cla_dropout)
+
+    if args.load is not None:
+        # Load network
+        basedir = '/Data/Dropbox/PhD/Projects/caesar_iscas2019/pytorch/models/'
+        net.load_state_dict(torch.load(basedir + args.load + '/best', map_location=lambda storage, loc: storage))
 
     if args.cuda == True:
         net = net.cuda()

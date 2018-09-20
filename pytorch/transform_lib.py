@@ -170,6 +170,17 @@ class cross_noise():
         return sample
 
 
+class laplacian_noise():
+    def __init__(self, sigma=0.6):
+        self.sigma = sigma + 1e-8
+
+    def __call__(self, sample):
+        for channel in sample:
+            noise = rnd.normal(loc=0.0, scale=self.sigma, size=channel['features'].shape).astype(np.float32)
+            channel['features'] += noise
+        return sample
+
+
 class gaussian_noise():
     def __init__(self, sigma=0.6):
         self.sigma = sigma + 1e-8
