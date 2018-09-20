@@ -267,7 +267,7 @@ class audio_stan(nn.Module):
             object = object.data
         if object.is_cuda:
             object = object.cpu()
-        return object.numpy()
+        return object.detach().numpy()
 
     def debug_to_numpy(self, debug):
         debug_numpy = {}

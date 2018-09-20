@@ -1,8 +1,8 @@
 from __future__ import print_function
 
 import os
-os.environ['LD_LIBRARY_PATH'] = '/usr/local/cuda-8.0/include:/usr/local/cuda-8.0/lib64/:' + \
-                                os.environ['LD_LIBRARY_PATH']
+#os.environ['LD_LIBRARY_PATH'] = '/usr/local/cuda-8.0/include:/usr/local/cuda-8.0/lib64/:' + \
+#                                os.environ['LD_LIBRARY_PATH']
 
 import matplotlib
 
@@ -37,8 +37,8 @@ if __name__ == '__main__':
     parser.add_argument('--dataset',
                         # default='/media/stefbraun/cache/TIDIGITS_MFCC_25fps.h5',
                         # default='/media/brauns/cache/CHiME.h5',
-                        # default='/Data/Dropbox/tidigits_kaldi_fbank.h5',
-                        default='/Data/DATASETS/CAESAR_TIDIGITS/tidigits_spk_sep.h5',
+                        # default='/home/enea/data/tidigits_kaldi_fbank.h5',
+                        default='/home/enea/data/tidigits_spk_sep.h5',
                         # default='/home/stefbraun/Downloads/CHiME_mfcc.h5',
                         help='HDF5 File that has the dataset')
     parser.add_argument('--dataset_mode',
@@ -46,7 +46,7 @@ if __name__ == '__main__':
     parser.add_argument('--trainset',
                         default='train')
     parser.add_argument('--valset',
-                        default='train')
+                        default='test')
 
     parser.add_argument('--run_id', default=os.environ.get('LSB_JOBID', 'default'),
                         help='ID of the run, used in saving.  Gets job ID on Euler, otherwise is "default".')
@@ -57,7 +57,7 @@ if __name__ == '__main__':
     # Control meta parameters
     parser.add_argument('--seed', default=11, type=int,
                         help='Initialize the random seed of the run (for reproducibility).')
-    parser.add_argument('--max_frame_cache', default=1000, type=int, help='Max frames per batch.')
+    parser.add_argument('--max_frame_cache', default=10000, type=int, help='Max frames per batch.')
     parser.add_argument('--num_epochs', default=150, type=int, help='Number of epochs to train for.')
     parser.add_argument('--patience', default=150, type=int,
                         help='How long to wait for an increase in validation loss before quitting.')
@@ -73,9 +73,9 @@ if __name__ == '__main__':
     parser.add_argument('--cuda', default=1, type=int, help='Use GPU yes/no')
     parser.add_argument('--cla_dropout', default=0.3, type=float, help='Dropout in classification layer')
     parser.add_argument('--rnn_type', default='LSTM', help='RNN type in all RNN-layers')
-    parser.add_argument('--cla_layers', default=4, type=int, help='number of classification layers')
-    parser.add_argument('--cla_size', default=320, type=int, help='Size of classification layer')
-    parser.add_argument('--weight_decay', default=1e-4, type=float, help='Weight of L2 regularizer')
+    parser.add_argument('--cla_layers', default=2, type=int, help='number of classification layers')
+    parser.add_argument('--cla_size', default=90, type=int, help='Size of classification layer')
+    parser.add_argument('--weight_decay', default=1e-2, type=float, help='Weight of L2 regularizer')
     parser.add_argument('--standardization', default='epoch', help='Standardization mode')
     parser.add_argument('--concatenation', default=0, type=int, help='Concatenate sensors')
     parser.add_argument('--att_share', default=False, type=bool, help='Attention module weight sharing')
@@ -105,8 +105,8 @@ if __name__ == '__main__':
     log_dict = collections.OrderedDict()
 
     # Prepare transforms
-    train_transforms = [tl.warp_ctc_shift(), tl.standardization(args.standardization), tl.gaussian_noise()]
-    val_transforms = [tl.warp_ctc_shift(), tl.standardization(args.standardization)]
+    train_transforms = [tl.warp_ctc_shift(), tl.gaussian_noise(sigma=3.0)]
+    val_transforms = [tl.warp_ctc_shift()]
     if args.concatenation == True:
         train_transforms.append(tl.concatenation())
         val_transforms.append(tl.concatenation())
@@ -163,19 +163,19 @@ if __name__ == '__main__':
     dict = {}  # we can store the weights in this dict for convenience
     for name, param in net.named_parameters():
         if 'weight' in name:  # all weights
-            weight_init.xavier_uniform(param, gain=1.6)
+            weight_init.xavier_uniform_(param, gain=1.6)
             if args.rnn_type == 'SRU':
                 print('SRU mode')
                 weight_init.uniform(param, -0.05, 0.05)
             dict[name] = param
         if 'bias' in name:  # all biases
-            weight_init.constant(param, 0)
+            weight_init.constant_(param, 0)
         if args.rnn_type == 'LSTM':  # only LSTM biases
             if ('bias_ih' in name) or ('bias_hh' in name):
                 no4 = int(len(param) / 4)
                 no2 = int(len(param) / 2)
-                weight_init.constant(param, 0)
-                weight_init.constant(param[no4:no2], 1)
+                weight_init.constant_(param, 0)
+                weight_init.constant_(param[no4:no2], 1)
 
     # Get progress tracker, validation meter
     prog_track = progress.progress_tracker(wait_period=args.wait_period, max_patience=args.patience)
@@ -198,11 +198,12 @@ if __name__ == '__main__':
 
         # Batch loop - training
         for sensor_list, feature_length, label, label_length, debug in tqdm(train_loader):
-            if train_batches == 0:
+            # print(label)
+	    if train_batches == 0:
                 print(sensor_list[0].size()[0] * sensor_list[0].size()[1], label_length.numpy()[:10])
             # Pytorch cuda cached memory allocator: avoid reallocating by making the first batch the biggest
             if t_step == 0:
-                sensor_list = max_frame_batch(sensor_list, args.max_frame_cache * 2.1)
+                sensor_list = max_frame_batch(sensor_list, args.max_frame_cache)
 
             # Convert data to Autograd Variables
             if args.cuda == True:
@@ -213,14 +214,14 @@ if __name__ == '__main__':
 
             # Optimization
             optimizer.zero_grad()
-            output, debug_dict = net(sensor_list, feature_length.data.numpy())
+            output, debug_dict = net(sensor_list, feature_length.data.detach().numpy())
             loss = criterion(output, label, feature_length, label_length)
             loss.backward()
             torch.nn.utils.clip_grad_norm(net.parameters(), 20)
             optimizer.step()
 
             # Increment monitoring variables
-            batch_loss = loss.data.numpy()[0]
+            batch_loss = loss.data.detach().numpy()[0]
             train_loss += batch_loss  # Accumulate loss
             train_batches += 1  # Accumulate count so we can calculate mean later
             t_step += 1
@@ -246,15 +247,15 @@ if __name__ == '__main__':
             for sensor_list, feature_length, label, label_length, debug in val_loader:
                 # print(sensor_list[0].size()[0] * sensor_list[0].size()[1], label_length.numpy()[:10])
                 # Convert data to Autograd Variables on cuda
-                sensor_list = [Variable(sensor, volatile=True) for sensor in sensor_list]
+                sensor_list = [Variable(sensor) for sensor in sensor_list]
                 if args.cuda == True:
                     sensor_list = [sensor.cuda() for sensor in sensor_list]
-                feature_length, label, label_length = Variable(feature_length, volatile=True), \
-                                                      Variable(label, volatile=True), \
-                                                      Variable(label_length, volatile=True)
+                feature_length, label, label_length = Variable(feature_length), \
+                                                      Variable(label), \
+                                                      Variable(label_length)
 
                 # Test step
-                output, debug_dict = net(sensor_list, feature_length.data.numpy())
+                output, debug_dict = net(sensor_list, feature_length.data.detach().numpy())
                 loss = criterion(output, label, feature_length, label_length)
 
                 # Tensorboard default logs
@@ -291,11 +292,11 @@ if __name__ == '__main__':
                 #         logger.image_summary(tag, images, epoch)
 
                 # Get prediction and best path decoding
-                val_meter.extend_guessed_labels(output.cpu().data.numpy())
-                val_meter.extend_target_labels(bY=label.data.numpy(), b_lenY=label_length.data.numpy())
+                val_meter.extend_guessed_labels(output.cpu().data.detach().numpy())
+                val_meter.extend_target_labels(bY=label.data.detach().numpy(), b_lenY=label_length.data.detach().numpy())
 
                 # Increment monitoring variables
-                val_loss += loss.data.numpy()[0]
+                val_loss += loss.data.detach().numpy()[0]
                 val_batches += 1  # Accumulate count so we can calculate mean later
                 v_step += 1
 
