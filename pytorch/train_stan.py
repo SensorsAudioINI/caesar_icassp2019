@@ -150,8 +150,27 @@ if __name__ == '__main__':
 
     if args.load is not None:
         # Load network
-        basedir = '/Data/Dropbox/PhD/Projects/caesar_iscas2019/pytorch/models/'
+        print("### Loading ... ###")
+        basedir = '.models/'
         net.load_state_dict(torch.load(basedir + args.load + '/best', map_location=lambda storage, loc: storage))
+    else:
+        # Weight initialization --> accelerate training with Xavier
+        dict = {}  # we can store the weights in this dict for convenience
+        for name, param in net.named_parameters():
+            if 'weight' in name:  # all weights
+                weight_init.xavier_uniform_(param, gain=1.6)
+                if args.rnn_type == 'SRU':
+                    print('SRU mode')
+                    weight_init.uniform(param, -0.05, 0.05)
+                dict[name] = param
+            if 'bias' in name:  # all biases
+                weight_init.constant_(param, 0)
+            if args.rnn_type == 'LSTM':  # only LSTM biases
+                if ('bias_ih' in name) or ('bias_hh' in name):
+                    no4 = int(len(param) / 4)
+                    no2 = int(len(param) / 2)
+                    weight_init.constant_(param, 0)
+                    weight_init.constant_(param[no4:no2], 1)
 
     if args.cuda == True:
         net = net.cuda()
@@ -169,23 +188,7 @@ if __name__ == '__main__':
         params += sizes
     print('::: # network parameters: ' + str(params))
 
-    # Weight initialization --> accelerate training with Xavier
-    dict = {}  # we can store the weights in this dict for convenience
-    for name, param in net.named_parameters():
-        if 'weight' in name:  # all weights
-            weight_init.xavier_uniform_(param, gain=1.6)
-            if args.rnn_type == 'SRU':
-                print('SRU mode')
-                weight_init.uniform(param, -0.05, 0.05)
-            dict[name] = param
-        if 'bias' in name:  # all biases
-            weight_init.constant_(param, 0)
-        if args.rnn_type == 'LSTM':  # only LSTM biases
-            if ('bias_ih' in name) or ('bias_hh' in name):
-                no4 = int(len(param) / 4)
-                no2 = int(len(param) / 2)
-                weight_init.constant_(param, 0)
-                weight_init.constant_(param[no4:no2], 1)
+
 
     # Get progress tracker, validation meter
     prog_track = progress.progress_tracker(wait_period=args.wait_period, max_patience=args.patience)
