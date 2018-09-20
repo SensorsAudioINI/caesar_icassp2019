@@ -48,6 +48,9 @@ if __name__ == '__main__':
     parser.add_argument('--valset',
                         default='test')
 
+    parser.add_argument('--load',
+                        default=None)
+
     parser.add_argument('--run_id', default=os.environ.get('LSB_JOBID', 'default'),
                         help='ID of the run, used in saving.  Gets job ID on Euler, otherwise is "default".')
     parser.add_argument('--experiment', default='train_direct_spk', help='Name of experiment for log and model folders')
