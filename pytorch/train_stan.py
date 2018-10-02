@@ -76,9 +76,9 @@ if __name__ == '__main__':
     parser.add_argument('--cuda', default=1, type=int, help='Use GPU yes/no')
     parser.add_argument('--cla_dropout', default=0.3, type=float, help='Dropout in classification layer')
     parser.add_argument('--rnn_type', default='LSTM', help='RNN type in all RNN-layers')
-    parser.add_argument('--cla_layers', default=2, type=int, help='number of classification layers')
-    parser.add_argument('--cla_size', default=90, type=int, help='Size of classification layer')
-    parser.add_argument('--weight_decay', default=1e-2, type=float, help='Weight of L2 regularizer')
+    parser.add_argument('--cla_layers', default=3, type=int, help='number of classification layers')
+    parser.add_argument('--cla_size', default=320, type=int, help='Size of classification layer')
+    parser.add_argument('--weight_decay', default=1e-3, type=float, help='Weight of L2 regularizer')
     parser.add_argument('--standardization', default='epoch', help='Standardization mode')
     parser.add_argument('--concatenation', default=0, type=int, help='Concatenate sensors')
     parser.add_argument('--att_share', default=False, type=bool, help='Attention module weight sharing')
@@ -109,7 +109,7 @@ if __name__ == '__main__':
 
     # Prepare transforms
 
-    train_transforms = [tl.warp_ctc_shift(), tl.gaussian_noise(sigma=3.0)]
+    train_transforms = [tl.warp_ctc_shift()]
     val_transforms = [tl.warp_ctc_shift()]
 
     if args.concatenation == True:

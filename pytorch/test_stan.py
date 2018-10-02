@@ -1,6 +1,6 @@
 import os
-os.environ['LD_LIBRARY_PATH'] = '/usr/local/cuda-8.0/include:/usr/local/cuda-8.0/lib64/:' + \
-                                os.environ['LD_LIBRARY_PATH']
+#os.environ['LD_LIBRARY_PATH'] = '/usr/local/cuda-8.0/include:/usr/local/cuda-8.0/lib64/:' + \
+#                                os.environ['LD_LIBRARY_PATH']
 
 import numpy as np
 import torch
@@ -15,7 +15,7 @@ import transform_lib as tl
 # conf = el.get_conf()
 # num_proc = int(conf['num_proc'])
 # h5_file = conf['h5_file']
-h5_file = '/Data/Dropbox/tidigits_kaldi_fbank.h5'
+h5_file = '/home/enea/data/tidigits_spk_sep_v04_noADJ.h5'
 # max_frame_cache = int(conf['max_frame_cache'])
 # cuda = bool(int(conf['cuda']))
 cuda = True
@@ -26,13 +26,13 @@ all_pos_scales = [True, False]
 
 # Dataset
 dataset_mode = 'default'
-all_subsets = ['test']
+all_subsets = ['train']
 
 # Define Network
-net_file = '/Data/Dropbox/PhD/Projects/caesar_iscas2019/pytorch/models/debug/1x_debug_bn/best'
-net = slx.audio_stan(num_sensors=1, inp_size=[123], tra_size=50,
+net_file = './models/spk_sep_v04_3/1x_train_direct_spk_bn/best'
+net = slx.audio_stan(num_sensors=1, inp_size=[62], tra_size=50,
                      att_size=20, cla_size=320, cla_layers=4,
-                     num_classes=59,
+                     num_classes=11,
                      tra_type='identity', rnn_mode='LSTM', cla_dropout=0.3)
 
 
