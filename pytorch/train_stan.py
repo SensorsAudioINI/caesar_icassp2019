@@ -151,7 +151,7 @@ if __name__ == '__main__':
     if args.load is not None:
         # Load network
         print("### Loading ... ###")
-        basedir = '.models/'
+        basedir = './models/'
         net.load_state_dict(torch.load(basedir + args.load + '/best', map_location=lambda storage, loc: storage))
     else:
         # Weight initialization --> accelerate training with Xavier

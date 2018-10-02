@@ -12,3 +12,7 @@ imgs
 /pytorch/decoder/
 /pytorch/models/
 /pytorch/logs/
+*.pkl
+*.h5
+*.csv
+*.txt
