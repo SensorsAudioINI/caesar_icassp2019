@@ -32,8 +32,16 @@ class standardization():
 
         elif self.mode == 'sample':
             for channel in sample:
+		if channel['modality'] == 'feat' or channel['modality'] == 'feat':  # Frames x Features
+		    pass
+		    #channel['features'] += 6.1
+		    #channel['features'] /= (np.std(channel['features'], 1, keepdims=True) + 1e-8)
+		    #if np.isnan(np.mean(channel['features'])):
+			#print(np.std(channel['features'], 1, keepdims=True))
+			#print(np.std(channel['features'], 1, keepdims=True).shape)
                 if channel['modality'] == 'audio':  # Frames x Features
                     channel['features'] = preprocessing.scale(channel['features'], axis=0)
+		    #print(channel['features'].shape)
                 elif channel['modality'] == 'video':  # Frames X Height X Width X Color channels
                     channel['features'] = channel['features'].astype(np.float32)
                     for color in range(channel['features'].shape[-1]):
