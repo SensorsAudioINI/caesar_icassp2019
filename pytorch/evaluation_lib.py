@@ -108,7 +108,7 @@ def infer(model, dataloader, cuda=True):
     return inference_list
 
 
-def error_preliminary(inference_list, subset='Not defined'):
+def error_preliminary(inference_list, filename, subset='Not defined'):
     test_meter = metric.meter(blank=0)
 
     for sample_dict in inference_list:
@@ -116,9 +116,9 @@ def error_preliminary(inference_list, subset='Not defined'):
                                                                                     1)  # convert to time x batch x features
         test_meter.extend_guessed_labels(output_sm)
         test_meter.extend_target_labels(bY=sample_dict['label'], b_lenY=sample_dict['label_length'])
-
-    for a, b in zip(test_meter.target_labels, test_meter.guessed_labels):
-        print "{} // {}".format(a, b)
+    with open(filename + '.txt', 'w') as ff:
+        for a, b in zip(test_meter.target_labels, test_meter.guessed_labels):
+            ff.write("{}%{}\n".format(a, b))
 
     PER, WER, CER = test_meter.get_metrics()
 

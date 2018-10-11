@@ -149,14 +149,15 @@ class classification_module(nn.Module):
         super(classification_module, self).__init__()
         if rnn_mode == 'LSTM':
             self.rnn = nn.LSTM(input_size=inp_size, hidden_size=cla_size, num_layers=num_layers, bias=True,
-                               bidirectional=True, dropout=cla_dropout)
+                               bidirectional=False, dropout=cla_dropout)
         if rnn_mode == 'GRU':
             self.rnn = nn.GRU(input_size=inp_size, hidden_size=cla_size, num_layers=num_layers, bias=True,
-                              bidirectional=True, dropout=cla_dropout)
+                              bidirectional=False, dropout=cla_dropout)
         elif rnn_mode == 'SRU':
             self.rnn = SRU(input_size=inp_size, hidden_size=cla_size, num_layers=num_layers,
                            bidirectional=True, dropout=cla_dropout, rnn_dropout=cla_dropout)
-        self.fc = nn.Linear(in_features=2 * cla_size, out_features=num_classes, bias=True)
+        self.fc = nn.Linear(in_features=cla_size, out_features=num_classes, bias=True)
+        # self.fc = nn.Linear(in_features=2*cla_size, out_features=num_classes, bias=True)
 
     def forward(self, x, x_len):
         x = x.transpose(0, 1)
@@ -170,7 +171,7 @@ class classification_module(nn.Module):
 class audio_stan(nn.Module):
     def __init__(self, num_sensors, inp_size, tra_size=50, att_size=20, att_share=False, cla_size=150, cla_layers=2,
                  num_classes=59,
-                 tra_type='dense', rnn_mode='LSTM', cla_dropout=0.0):
+                 tra_type='dense', rnn_mode='GRU', cla_dropout=0.0):
         super(audio_stan, self).__init__()
 
         # Sensor parameters
@@ -267,7 +268,7 @@ class audio_stan(nn.Module):
             object = object.data
         if object.is_cuda:
             object = object.cpu()
-        return object.detach().numpy()
+        return object.numpy()
 
     def debug_to_numpy(self, debug):
         debug_numpy = {}

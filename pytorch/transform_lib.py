@@ -5,6 +5,7 @@ import noise_lib as nl
 from sklearn import preprocessing
 import skvideo.utils as su
 
+
 class warp_ctc_shift(object):
     def __init__(self, shift=1):
         self.shift = shift
@@ -32,16 +33,18 @@ class standardization():
 
         elif self.mode == 'sample':
             for channel in sample:
-		if channel['modality'] == 'feat' or channel['modality'] == 'feat':  # Frames x Features
-		    pass
-		    #channel['features'] += 6.1
-		    #channel['features'] /= (np.std(channel['features'], 1, keepdims=True) + 1e-8)
-		    #if np.isnan(np.mean(channel['features'])):
-			#print(np.std(channel['features'], 1, keepdims=True))
-			#print(np.std(channel['features'], 1, keepdims=True).shape)
+                if channel['modality'] == 'feat':  # Frames x Features
+                    # channel['features'] += 6.1
+                    # channel['features'] -= np.mean(channel['features'], 1, keepdims=True)
+                    channel['features'] /= (np.std(channel['features'], 1, keepdims=True) + 1e-8)
+                    # channel['features'] /= np.max(channel['features'])
+                    # print(np.max(channel['features']))
+                    # if np.isnan(np.mean(channel['features'])):
+                    # print(np.std(channel['features'], 1, keepdims=True))
+                    # print(np.std(channel['features'], 1, keepdims=True).shape)
                 if channel['modality'] == 'audio':  # Frames x Features
                     channel['features'] = preprocessing.scale(channel['features'], axis=0)
-		    #print(channel['features'].shape)
+                    # print(channel['features'].shape)
                 elif channel['modality'] == 'video':  # Frames X Height X Width X Color channels
                     channel['features'] = channel['features'].astype(np.float32)
                     for color in range(channel['features'].shape[-1]):

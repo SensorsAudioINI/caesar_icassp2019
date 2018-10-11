@@ -1,8 +1,8 @@
 from __future__ import print_function
 
 import os
-#os.environ['LD_LIBRARY_PATH'] = '/usr/local/cuda-8.0/include:/usr/local/cuda-8.0/lib64/:' + \
-#                                os.environ['LD_LIBRARY_PATH']
+os.environ['LD_LIBRARY_PATH'] = '/usr/local/cuda-8.0/include:/usr/local/cuda-8.0/lib64/:' + \
+                                os.environ['LD_LIBRARY_PATH']
 
 import matplotlib
 
@@ -72,16 +72,17 @@ if __name__ == '__main__':
     parser.add_argument('--att_size', default=20, type=int, help='Size of the RNN in the attention module')
     parser.add_argument('--tra_size', default=50, type=int, help='Size of transformation layer')
     parser.add_argument('--tra_type', default='identity', help='Type of transformation')
-    parser.add_argument('--classes', default=11, type=int, help='Number of target classes (including blank label)')
+    parser.add_argument('--classes', default=3, type=int, help='Number of target classes (including blank label)')
     parser.add_argument('--cuda', default=1, type=int, help='Use GPU yes/no')
     parser.add_argument('--cla_dropout', default=0.3, type=float, help='Dropout in classification layer')
-    parser.add_argument('--rnn_type', default='LSTM', help='RNN type in all RNN-layers')
-    parser.add_argument('--cla_layers', default=3, type=int, help='number of classification layers')
-    parser.add_argument('--cla_size', default=320, type=int, help='Size of classification layer')
+    parser.add_argument('--rnn_type', default='GRU', help='RNN type in all RNN-layers')
+    parser.add_argument('--cla_layers', default=2, type=int, help='number of classification layers')
+    parser.add_argument('--cla_size', default=180, type=int, help='Size of classification layer')
     parser.add_argument('--weight_decay', default=1e-3, type=float, help='Weight of L2 regularizer')
     parser.add_argument('--standardization', default='sample', help='Standardization mode')
     parser.add_argument('--concatenation', default=0, type=int, help='Concatenate sensors')
     parser.add_argument('--att_share', default=False, type=bool, help='Attention module weight sharing')
+    parser.add_argument('--noise', default=0.4, type=float, help='Gaussian noise on input')
 
     args = parser.parse_args()
     print(args)
@@ -109,8 +110,8 @@ if __name__ == '__main__':
 
     # Prepare transforms
 
-    train_transforms = [tl.warp_ctc_shift(), tl.gaussian_noise(0.2)]
-    val_transforms = [tl.warp_ctc_shift()]
+    train_transforms = [tl.warp_ctc_shift(), tl.standardization(args.standardization), tl.gaussian_noise(args.noise)]
+    val_transforms = [tl.warp_ctc_shift(), tl.standardization(args.standardization)]
 
     if args.concatenation == True:
         train_transforms.append(tl.concatenation())
@@ -150,7 +151,7 @@ if __name__ == '__main__':
 
     if args.load is not None:
         # Load network
-        print("### Loading ... ###")
+        print("### Loading .. ###")
         basedir = './models/'
         net.load_state_dict(torch.load(basedir + args.load + '/best', map_location=lambda storage, loc: storage))
     else:
@@ -158,24 +159,27 @@ if __name__ == '__main__':
         dict = {}  # we can store the weights in this dict for convenience
         for name, param in net.named_parameters():
             if 'weight' in name:  # all weights
-                weight_init.xavier_uniform_(param, gain=1.6)
+                weight_init.xavier_uniform(param, gain=1.6)
                 if args.rnn_type == 'SRU':
                     print('SRU mode')
                     weight_init.uniform(param, -0.05, 0.05)
                 dict[name] = param
             if 'bias' in name:  # all biases
-                weight_init.constant_(param, 0)
+                weight_init.constant(param, 0)
             if args.rnn_type == 'LSTM':  # only LSTM biases
                 if ('bias_ih' in name) or ('bias_hh' in name):
                     no4 = int(len(param) / 4)
                     no2 = int(len(param) / 2)
-                    weight_init.constant_(param, 0)
-                    weight_init.constant_(param[no4:no2], 1)
+                    weight_init.constant(param, 0)
+                    weight_init.constant(param[no4:no2], 1)
 
     if args.cuda == True:
         net = net.cuda()
 
-    optimizer = optim.Adam(net.parameters(), weight_decay=args.weight_decay)
+    # optimizer = optim.Adam(net.parameters(), weight_decay=args.weight_decay)
+    optimizer = optim.Adam(net.parameters())
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.5)
+    scheduler.step()
     criterion = CTCLoss()
     print(net)
 
@@ -195,13 +199,17 @@ if __name__ == '__main__':
     val_meter = metric.meter(blank=0)
 
     # Epoch loop
-    print("Starting training...")
+    print("Starting training..")
     t_step = 0
     v_step = 0
 
     # Save pretrained net
     torch.save(net.state_dict(), os.path.join(savedir, 'pretrain'))
     torch.save(net, os.path.join(savedir, 'pretrain_mdl'))
+
+    val_loss_list = []
+    train_loss_list = []
+    decay_cnt = 0
 
     for epoch in range(args.num_epochs + 1):
 
@@ -212,7 +220,8 @@ if __name__ == '__main__':
         # Batch loop - training
         for sensor_list, feature_length, label, label_length, debug in tqdm(train_loader):
             # print(label)
-	    if train_batches == 0:
+            LL = label.numpy()
+            if train_batches == 0:
                 print(sensor_list[0].size()[0] * sensor_list[0].size()[1], label_length.numpy()[:10])
             # Pytorch cuda cached memory allocator: avoid reallocating by making the first batch the biggest
             if t_step == 0:
@@ -227,14 +236,14 @@ if __name__ == '__main__':
 
             # Optimization
             optimizer.zero_grad()
-            output, debug_dict = net(sensor_list, feature_length.data.detach().numpy())
+            output, debug_dict = net(sensor_list, feature_length.data.numpy())
             loss = criterion(output, label, feature_length, label_length)
             loss.backward()
             torch.nn.utils.clip_grad_norm(net.parameters(), 20)
             optimizer.step()
 
             # Increment monitoring variables
-            batch_loss = loss.data.detach().numpy()[0]
+            batch_loss = loss.data.numpy()[0]
             train_loss += batch_loss  # Accumulate loss
             train_batches += 1  # Accumulate count so we can calculate mean later
             t_step += 1
@@ -268,31 +277,31 @@ if __name__ == '__main__':
                                                       Variable(label_length)
 
                 # Test step
-                output, debug_dict = net(sensor_list, feature_length.data.detach().numpy())
+                output, debug_dict = net(sensor_list, feature_length.data.numpy())
                 loss = criterion(output, label, feature_length, label_length)
 
                 # Tensorboard default logs
-                if val_batches in [0]:
-                    print(sensor_list[0].size(), label_length.data.numpy()[:10])
-
-                    plot_idx = 0
-                    debug_dict = net.debug_to_numpy(debug_dict)
-                    info = {
-                        # 'merge': plot_image(debug_dict['merge'][plot_idx].T, title='Merge'),
-                        'GRU output': plot_image(debug_dict['classifier'][plot_idx].T, title='Classifier'),
-                        'dense output': plot_image(debug_dict['dense'][plot_idx].T, title='Output'),
-                    }
-                    for sensor in range(net.num_sensors):
-                        info['input_{}'.format(sensor)] = plot_image(debug_dict['inputs'][sensor][plot_idx].T,
-                                                                     title='sensor_{}'.format(sensor))
-                        # info['scale_{}'.format(sensor)] = plot_image(debug_dict['scale'][sensor][plot_idx].T,
-                        #                                              title='scaled_transform_{}'.format(sensor))
-                        info['transform_{}'.format(sensor)] = plot_image(
-                            debug_dict['transforms'][sensor][plot_idx].T,
-                            title='transform_{}'.format(sensor))
-
-                    for tag, images in info.items():
-                        logger.image_summary(tag, images, epoch)
+                # if val_batches in [0]:
+                #     print(sensor_list[0].size(), label_length.data.numpy()[:10])
+                #
+                #     plot_idx = 0
+                #     debug_dict = net.debug_to_numpy(debug_dict)
+                #     info = {
+                #         # 'merge': plot_image(debug_dict['merge'][plot_idx].T, title='Merge'),
+                #         'GRU output': plot_image(debug_dict['classifier'][plot_idx].T, title='Classifier'),
+                #         'dense output': plot_image(debug_dict['dense'][plot_idx].T, title='Output'),
+                #     }
+                #     for sensor in range(net.num_sensors):
+                #         info['input_{}'.format(sensor)] = plot_image(debug_dict['inputs'][sensor][plot_idx].T,
+                #                                                      title='sensor_{}'.format(sensor))
+                #         # info['scale_{}'.format(sensor)] = plot_image(debug_dict['scale'][sensor][plot_idx].T,
+                #         #                                              title='scaled_transform_{}'.format(sensor))
+                #         info['transform_{}'.format(sensor)] = plot_image(
+                #             debug_dict['transforms'][sensor][plot_idx].T,
+                #             title='transform_{}'.format(sensor))
+                #
+                #     for tag, images in info.items():
+                #         logger.image_summary(tag, images, epoch)
 
                 # Noise level / attention plots
                 # if val_batches in [0]:
@@ -305,11 +314,11 @@ if __name__ == '__main__':
                 #         logger.image_summary(tag, images, epoch)
 
                 # Get prediction and best path decoding
-                val_meter.extend_guessed_labels(output.cpu().data.detach().numpy())
-                val_meter.extend_target_labels(bY=label.data.detach().numpy(), b_lenY=label_length.data.detach().numpy())
+                val_meter.extend_guessed_labels(output.cpu().data.numpy())
+                val_meter.extend_target_labels(bY=label.data.numpy(), b_lenY=label_length.data.numpy())
 
                 # Increment monitoring variables
-                val_loss += loss.data.detach().numpy()[0]
+                val_loss += loss.data.numpy()[0]
                 val_batches += 1  # Accumulate count so we can calculate mean later
                 v_step += 1
 
@@ -332,6 +341,15 @@ if __name__ == '__main__':
                             val_loss / val_batches,
                             PER, WER, CER,
                             val_batches))
+            val_loss_list.append(val_loss / val_batches)
+            train_loss_list.append(train_loss / train_batches)
+            decay_cnt += 1
+
+            if np.min(train_loss_list) not in train_loss_list[-3:] and decay_cnt >= 3:
+                scheduler.step()
+                decay_cnt = 0
+                print("Decreased LR")
+
             log_dict['epoch'] = epoch
             log_dict['train_loss'] = train_loss / train_batches
             log_dict['val_loss'] = val_loss / val_batches
