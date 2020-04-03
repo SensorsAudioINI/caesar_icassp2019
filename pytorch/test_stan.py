@@ -11,7 +11,8 @@ import evaluation_lib as el
 import stan_lib_x as slx
 import transform_lib as tl
 
-TO_TEST = '3'
+TO_TEST = '0'
+
 # Get configuration
 # conf = el.get_conf()
 # num_proc = int(conf['num_proc'])
@@ -31,7 +32,7 @@ dataset_mode = 'default'
 all_subsets = ['test']
 # Define Network
 
-exp_name = 'lvcollc{}_3_220_gru_unidir_n00/1x_train_direct_spk_bn'.format(TO_TEST)
+exp_name = 'lvcoll{}_3_220_gru_unidir_n00_v3/1x_train_direct_spk_bn'.format(TO_TEST)
 net_file = './models/{}/best'.format(exp_name)
 net = slx.audio_stan(num_sensors=1, inp_size=[64], tra_size=50,
                      att_size=20, cla_size=220, cla_layers=3,
@@ -59,7 +60,8 @@ for subset in all_subsets:
 
     # Get network output
     inference_list = el.infer(model=net, dataloader=test_loader, cuda=cuda)
-    PER, WER, CER = el.error_preliminary(inference_list, '{}{}{}_wake_coll'.format(TO_TEST, TO_TEST, TO_TEST), subset)
+    PER, WER, CER = el.error_preliminary(inference_list, '{}{}{}_wake_coll_v3'.format(TO_TEST, TO_TEST, TO_TEST), subset)
+
     print(PER, WER, CER)
     # for pos_scale in all_pos_scales:
     #
